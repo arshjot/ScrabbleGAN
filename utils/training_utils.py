@@ -13,36 +13,36 @@ class ModelCheckpoint:
         self.filename = os.path.join(self.weight_dir, file_prefix + 'model_latest_checkpoint.pth.tar')
         self.best_filename = os.path.join(self.weight_dir, file_prefix + 'model_best.pth.tar')
 
-    def save(self, is_best, min_val_error, num_bad_epochs, epoch, model, optimizer, scheduler=None):
-        scheduler_save = scheduler if scheduler is None else scheduler.state_dict()
+    def save(self, is_best, min_val_error, num_bad_epochs, epoch, model, optimizers, schedulers=None):
+        scheduler_save = schedulers if schedulers is None else [sch.state_dict() for sch in schedulers]
         save_dict = {
             'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
+            'optimizers': [opt.state_dict() for opt in optimizers],
             'epoch': epoch,
             'min_val_error': min_val_error,
             'num_bad_epochs': num_bad_epochs,
-            'scheduler': scheduler_save
+            'schedulers': scheduler_save
         }
         torch.save(save_dict, self.filename)
         if is_best:
             shutil.copyfile(self.filename, self.best_filename)
 
-    def load(self, model, optimizer=None, scheduler=None, load_best=False):
+    def load(self, model, optimizers=None, schedulers=None, load_best=False):
         load_filename = self.best_filename if load_best else self.filename
         if os.path.isfile(load_filename):
             checkpoint = torch.load(load_filename, map_location=self.config.device)
             model.load_state_dict(checkpoint['model'])
-            if optimizer is not None:
-                optimizer.load_state_dict(checkpoint['optimizer'])
-            if scheduler is not None:
-                scheduler.load_state_dict(checkpoint['scheduler'])
+            if optimizers is not None:
+                optimizers = [opt.load_state_dict(checkpoint['optimizers'][idx]) for idx, opt in enumerate(optimizers)]
+            if schedulers is not None:
+                schedulers = [sch.load_state_dict(checkpoint['schedulers'][idx]) for idx, sch in enumerate(schedulers)]
             start_epoch = checkpoint['epoch'] + 1
             min_val_error = checkpoint['min_val_error']
             num_bad_epochs = checkpoint['num_bad_epochs']
         else:
             raise FileNotFoundError(f'No checkpoint found at {load_filename}')
 
-        return model, optimizer, scheduler, [start_epoch, min_val_error, num_bad_epochs]
+        return model, optimizers, schedulers, [start_epoch, min_val_error, num_bad_epochs]
 
 
 class EarlyStopping(object):

@@ -23,6 +23,9 @@ __pycache__/
 *.csv.gz
 *.pickle
 *.pkl
+*.png
+*.lst
+*.txt
 
 # tensorboard logs
 */logs/*
