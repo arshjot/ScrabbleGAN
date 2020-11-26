@@ -7,7 +7,7 @@ class Config:
     char_w = 16
     partition = 'tr'
 
-    batch_size = 4
+    batch_size = 8
     num_epochs = 200
     epochs_lr_decay = 100  # learning rate decay will be applied for last these many steps (should be <= num_epochs)
     resume_training = False
@@ -17,7 +17,7 @@ class Config:
     grad_balance = True
 
     data_file = './data/tr_data.pkl'
-    lexicon_file = './data/Lexicon/words.txt'
+    lexicon_file = './data/words.txt'
 
     architecture = 'ScrabbleGAN'
     # Recognizer network
@@ -45,6 +45,3 @@ class Config:
     # Noise vector
     z_dim = 128
     num_chars = 74
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # device = torch.device('cpu')
