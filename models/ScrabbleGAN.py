@@ -263,3 +263,6 @@ class ScrabbleGAN(pl.LightningModule):
         if optimizer_idx == 1:
             optimizer.step()
             optimizer.zero_grad()
+    @property
+    def automatic_optimization() -> bool:
+        return False
