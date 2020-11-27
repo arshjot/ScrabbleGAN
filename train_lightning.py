@@ -20,5 +20,5 @@ if __name__ == "__main__":
     config = Config
     dl = DataLoader(config).create_train_loader()
     model = ScrabbleGAN(config, dl.dataset.char_map)
-    trainer = pl.Trainer(tpu_cores=8, automatic_optimization=False, logger=logger)
+    trainer = pl.Trainer(tpu_cores=8, precision=16,automatic_optimization=False, logger=logger)
     trainer.fit(model, dl)
