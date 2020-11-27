@@ -138,7 +138,6 @@ class ScrabbleGAN(pl.LightningModule):
 
         # sample noise
         z = self.z_dist.sample([self.config.batch_size, self.z_dim])
-        z = z.type_as(imgs)
         sample_lex_idx = self.fake_y_dist.sample([self.batch_size])
         fake_y = [self.fake_words[i] for i in sample_lex_idx]
         fake_y, fake_y_lens = self.word_map.encode(fake_y)
@@ -157,8 +156,7 @@ class ScrabbleGAN(pl.LightningModule):
             pred_R_fake = self.R(self.generated_imgs).permute(
                 1, 0, 2)  # [w, b, num_chars]
 
-            valid = torch.ones(pred_R_fake.size(1)).int()
-            # valid = valid.type_as(imgs)
+            valid = torch.ones(pred_R_fake.size(1), device=self.device).int()
 
             loss_G = self.G_criterion(pred_D_fake)
             loss_R_fake = self.R_criterion(pred_R_fake, fake_y,
@@ -186,8 +184,11 @@ class ScrabbleGAN(pl.LightningModule):
                 'progress_bar': tqdm_dict,
                 'log': tqdm_dict
             })
-            self.logger.experiment.add_scalar("g_loss", self.g_loss.item(), batch_idx)
+            self.logger.experiment.add_scalar("g_loss", self.g_loss.detach(), batch_idx)
             self.g_loss.backward()
+            self.G_optimizer.step()
+            self.G_optimizer.zero_grad()
+
 
         # train discriminator
         self.generated_imgs = self(z, fake_y_one_hot)
@@ -206,7 +207,7 @@ class ScrabbleGAN(pl.LightningModule):
             'progress_bar': tqdm_dict,
             'log': tqdm_dict
         })
-        self.logger.experiment.add_scalar("d_loss", self.d_loss.item(), batch_idx)
+        self.logger.experiment.add_scalar("d_loss", self.d_loss.detach(), batch_idx)
         self.d_loss.backward()
 
         # train recogniser
@@ -226,13 +227,11 @@ class ScrabbleGAN(pl.LightningModule):
             'progress_bar': tqdm_dict,
             'log': tqdm_dict
         })
-        self.logger.experiment.add_scalar("r_loss", self.r_loss.item(), batch_idx)
+        self.logger.experiment.add_scalar("r_loss", self.r_loss.detach(), batch_idx)
         self.r_loss.backward()
         
-        self.G_optimizer.step()
         self.D_optimizer.step()
         self.R_optimizer.step()
-        self.G_optimizer.zero_grad()
         self.D_optimizer.zero_grad()
         self.R_optimizer.zero_grad()
 
