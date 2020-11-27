@@ -26,9 +26,11 @@ __pycache__/
 *.png
 *.lst
 *.txt
+*.ckpt
 
 # tensorboard logs
 */logs/*
+lightning_logs/*
 
 # model weights
 */weights/*

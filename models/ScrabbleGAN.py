@@ -245,10 +245,10 @@ class ScrabbleGAN(pl.LightningModule):
 
         return self.optimizers, self.schedulers
 
-    def optimizer_step(self, current_epoch, batch_nb, optimizer, optimizer_idx,
-                       second_order_closure=None, on_tpu=False, using_native_amp=False, using_lbfgs=False):
+    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_idx,
+                       optimizer_closure=None, on_tpu=False, using_native_amp=False, using_lbfgs=False):
         if optimizer_idx == 0:
-            if batch_nb % self.config.train_gen_steps == 0:
+            if batch_idx % self.config.train_gen_steps == 0:
                 optimizer.step()
                 optimizer.zero_grad()
         # update discriminator opt every 4 steps
