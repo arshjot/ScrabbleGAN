@@ -7,7 +7,7 @@ class Config:
     char_w = 16
     partition = 'tr'
 
-    batch_size = 8
+    batch_size = 16
     num_epochs = 200
     epochs_lr_decay = 100  # learning rate decay will be applied for last these many steps (should be <= num_epochs)
     resume_training = False
