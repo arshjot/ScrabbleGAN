@@ -181,6 +181,7 @@ class ScrabbleGAN(pl.LightningModule):
                 'progress_bar': tqdm_dict,
                 'log': tqdm_dict
             })
+            self.logger.experiment.add_scalar("g_loss", g_loss.item(), batch_idx)
             return output
 
         # train discriminator
@@ -202,6 +203,7 @@ class ScrabbleGAN(pl.LightningModule):
                 'progress_bar': tqdm_dict,
                 'log': tqdm_dict
             })
+            self.logger.experiment.add_scalar("d_loss", d_loss.item(), batch_idx)
             return output
 
         # train recogniser
@@ -223,6 +225,7 @@ class ScrabbleGAN(pl.LightningModule):
                 'progress_bar': tqdm_dict,
                 'log': tqdm_dict
             })
+            self.logger.experiment.add_scalar("r_loss", r_loss.item(), batch_idx)
             return output
 
     def configure_optimizers(self):
@@ -248,13 +251,15 @@ class ScrabbleGAN(pl.LightningModule):
     def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_idx,
                        optimizer_closure=None, on_tpu=False, using_native_amp=False, using_lbfgs=False):
         if optimizer_idx == 0:
+            # update discriminator opt every 4 steps
             if batch_idx % self.config.train_gen_steps == 0:
                 optimizer.step()
                 optimizer.zero_grad()
-        # update discriminator opt every 4 steps
+
         if optimizer_idx == 1:
             optimizer.step()
             optimizer.zero_grad()
+        
         if optimizer_idx == 1:
             optimizer.step()
             optimizer.zero_grad()

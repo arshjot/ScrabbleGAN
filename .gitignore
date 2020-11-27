@@ -31,6 +31,7 @@ __pycache__/
 # tensorboard logs
 */logs/*
 lightning_logs/*
+tb_logs/*
 
 # model weights
 */weights/*
