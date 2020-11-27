@@ -133,7 +133,7 @@ class ScrabbleGAN(pl.LightningModule):
 
         imgs = batch['img']
         real_y = batch['label']
-        real_y_one_hot = F.one_hot(real_y, self.config.num_chars)
+        # real_y_one_hot = F.one_hot(real_y, self.config.num_chars)
         real_y_lens = batch['label_len']
 
         # sample noise
@@ -143,17 +143,22 @@ class ScrabbleGAN(pl.LightningModule):
         fake_y = [self.fake_words[i] for i in sample_lex_idx]
         fake_y, fake_y_lens = self.word_map.encode(fake_y)
 
+        fake_y_one_hot = F.one_hot(fake_y, self.num_chars)
+        fake_y = fake_y.type_as(imgs)
+        fake_y_one_hot = fake_y_one_hot.type_as(imgs)
+        # fake_y_lens = fake_y_lens.type_as(imgs)
+
         # train generator
         if optimizer_idx == 0:
             # generate images
-            self.generated_imgs = self(z, fake_y)
+            self.generated_imgs = self(z, fake_y_one_hot)
 
             pred_D_fake = self.D(self.generated_imgs)
             pred_R_fake = self.R(self.generated_imgs).permute(
                 1, 0, 2)  # [w, b, num_chars]
 
             valid = torch.ones(pred_R_fake.size(1)).int()
-            valid = valid.type_as(imgs)
+            # valid = valid.type_as(imgs)
 
             loss_G = self.G_criterion(pred_D_fake)
             loss_R_fake = self.R_criterion(pred_R_fake, fake_y,
@@ -174,15 +179,15 @@ class ScrabbleGAN(pl.LightningModule):
             loss_G_total = loss_G + loss_R_fake
 
             # adversarial loss is binary cross-entropy
-            g_loss = loss_G_total
-            tqdm_dict = {'g_loss': g_loss}
+            self.g_loss = loss_G_total
+            tqdm_dict = {'g_loss': self.g_loss}
             output = OrderedDict({
-                'loss': g_loss,
+                'loss': self.g_loss,
                 'progress_bar': tqdm_dict,
                 'log': tqdm_dict
             })
-            self.logger.experiment.add_scalar("g_loss", g_loss.item(), batch_idx)
-            return output
+            self.logger.experiment.add_scalar("g_loss", self.g_loss.item(), batch_idx)
+            self.g_loss.backward()
 
         # train discriminator
         if optimizer_idx == 1:
@@ -195,16 +200,16 @@ class ScrabbleGAN(pl.LightningModule):
             # we will now calculate discriminator loss for both real and fake images
             d_loss_fake = self.D_criterion(pred_D_fake, 'fake')
             d_loss_real = self.D_criterion(pred_D_real, 'real')
-            d_loss = d_loss_fake + d_loss_real
+            self.d_loss = d_loss_fake + d_loss_real
 
-            tqdm_dict = {'d_loss': d_loss}
+            tqdm_dict = {'d_loss': self.d_loss}
             output = OrderedDict({
-                'loss': d_loss,
+                'loss': self.d_loss,
                 'progress_bar': tqdm_dict,
                 'log': tqdm_dict
             })
-            self.logger.experiment.add_scalar("d_loss", d_loss.item(), batch_idx)
-            return output
+            self.logger.experiment.add_scalar("d_loss", self.d_loss.item(), batch_idx)
+            self.d_loss.backward()
 
         # train recogniser
         if optimizer_idx == 2:
@@ -214,19 +219,19 @@ class ScrabbleGAN(pl.LightningModule):
             valid = torch.ones(pred_R_real.size(1)).int()
             valid = valid.type_as(imgs)
 
-            r_loss = self.R_criterion(pred_R_real, real_y,
+            self.r_loss = self.R_criterion(pred_R_real, real_y,
                                       valid * pred_R_real.size(0),
                                       real_y_lens)
-            r_loss = torch.mean(r_loss[~torch.isnan(r_loss)])
+            self.r_loss = torch.mean(self.r_loss[~torch.isnan(self.r_loss)])
 
-            tqdm_dict = {'r_loss': r_loss}
+            tqdm_dict = {'r_loss': self.r_loss}
             output = OrderedDict({
-                'loss': r_loss,
+                'loss': self.r_loss,
                 'progress_bar': tqdm_dict,
                 'log': tqdm_dict
             })
-            self.logger.experiment.add_scalar("r_loss", r_loss.item(), batch_idx)
-            return output
+            self.logger.experiment.add_scalar("r_loss", self.r_loss.item(), batch_idx)
+            self.r_loss.backward()
 
     def configure_optimizers(self):
         self.G_criterion = getattr(loss_functions, self.config.g_loss_fn)('G')
@@ -247,19 +252,26 @@ class ScrabbleGAN(pl.LightningModule):
             opt, lr_decay_lambda) for opt in self.optimizers]
 
         return self.optimizers, self.schedulers
+    
+    def on_epoch_end(self):
+        # log sampled images
+        print(f"G Loss: {self.g_loss}")
+        print(f"R Loss: {self.r_loss}")
+        print(f"D Loss: {self.d_loss}")
 
-    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_idx,
-                       optimizer_closure=None, on_tpu=False, using_native_amp=False, using_lbfgs=False):
-        if optimizer_idx == 0:
-            # update discriminator opt every 4 steps
-            if batch_idx % self.config.train_gen_steps == 0:
-                optimizer.step()
-                optimizer.zero_grad()
 
-        if optimizer_idx == 1:
-            optimizer.step()
-            optimizer.zero_grad()
+    # def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_idx,
+    #                    optimizer_closure=None, on_tpu=False, using_native_amp=False, using_lbfgs=False):
+    #     if optimizer_idx == 0:
+    #         # update discriminator opt every 4 steps
+    #         if batch_idx % self.config.train_gen_steps == 0:
+    #             optimizer.step()
+    #             optimizer.zero_grad()
+
+    #     if optimizer_idx == 1:
+    #         optimizer.step()
+    #         optimizer.zero_grad()
         
-        if optimizer_idx == 1:
-            optimizer.step()
-            optimizer.zero_grad()
+    #     if optimizer_idx == 1:
+    #         optimizer.step()
+    #         optimizer.zero_grad()
