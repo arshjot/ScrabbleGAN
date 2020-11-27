@@ -26,6 +26,21 @@ class WordMap:
 
         dec_words = []
         for word in enc_word_list:
-            dec_words.append(''.join([self.rev_char_map[char_idx] for char_idx in word if char_idx != 0]))
+            dec_words.append(''.join([self.rev_char_map[char_enc] for char_enc in word if char_enc != 0]))
+
+        return dec_words
+
+    def recognizer_decode(self, enc_word_list):
+        """Returns a list of words (str) after removing blanks and collapsing repeating characters"""
+
+        dec_words = []
+        for word in enc_word_list:
+            for idx, char_enc in enumerate(word):
+                word_chars = ''
+                # skip if blank symbol or repeated characters
+                if (char_enc != 0) and (not ((idx > 0) and (char_enc == word[idx - 1]))):
+                    word_chars += self.rev_char_map[char_enc]
+
+            dec_words.append(word_chars)
 
         return dec_words

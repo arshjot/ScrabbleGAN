@@ -26,12 +26,13 @@ __pycache__/
 *.png
 *.lst
 *.txt
+*.log
 
 # tensorboard logs
-*/logs/*
+/logs/*
 
 # model weights
-*/weights/*
+/weights/*
 
 # exceptions
 !*.keep

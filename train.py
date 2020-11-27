@@ -6,12 +6,13 @@ import shutil
 import glob
 import os
 import numpy as np
-import sys
+import matplotlib.pyplot as plt
+import logging
 
 import torch.nn.functional as F
 from data_loader.data_generator import DataLoader
 from utils.data_utils import *
-from utils.training_utils import ModelCheckpoint, EarlyStopping
+from utils.training_utils import ModelCheckpoint
 from losses_and_metrics import loss_functions, metrics
 from config import Config
 
@@ -21,24 +22,31 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed(seed)
 np.random.seed(seed)
 
+level = logging.INFO
+format_log = '%(message)s'
+handlers = [logging.FileHandler('./output/output.log'), logging.StreamHandler()]
+logging.basicConfig(level=level, format=format_log, handlers=handlers)
+
 
 class Trainer:
     def __init__(self, config):
         self.config = config
         self.terminal_width = shutil.get_terminal_size((80, 20)).columns
 
-        print(f' Loading Data '.center(self.terminal_width, '*'))
+        logging.info(f' Loading Data '.center(self.terminal_width, '*'))
         data_loader = DataLoader(self.config)
 
         self.train_loader = data_loader.create_train_loader()
 
         # Model
-        print(f' Model: {self.config.architecture} '.center(self.terminal_width, '*'))
+        logging.info(f' Model: {self.config.architecture} '.center(self.terminal_width, '*'))
         model_type = import_module('models.' + self.config.architecture)
         create_model = getattr(model_type, 'create_model')
         self.model = create_model(self.config, data_loader.dataset.char_map)
-        print(self.model, end='\n\n')
+        logging.info(f'{self.model}\n')
         self.model.to(self.config.device)
+
+        self.word_map = WordMap(data_loader.dataset.char_map)
 
         # Loss, Optimizer and LRScheduler
         self.G_criterion = getattr(loss_functions, self.config.g_loss_fn)('G')
@@ -51,23 +59,20 @@ class Trainer:
 
         # Use a linear learning rate decay but start the decay only after specified number of epochs
         lr_decay_lambda = lambda epoch: (1. - (1. / self.config.epochs_lr_decay)) \
-            if epoch > (epoch - self.config.epochs_lr_decay) else 1.
+            if epoch > (epoch - self.config.epochs_lr_decay - 1) else 1.
         self.schedulers = [torch.optim.lr_scheduler.LambdaLR(opt, lr_decay_lambda) for opt in self.optimizers]
-        # self.early_stopping = EarlyStopping(patience=10)
-        
+
         # Metric
         # self.metric = getattr(metrics, config.metric)()
 
-        self.start_epoch, self.min_val_error = 1, None
+        self.start_epoch = 1
         # Load checkpoint if training is to be resumed
         self.model_checkpoint = ModelCheckpoint(config=self.config)
         if config.resume_training:
-            self.model, self.optimizers, self.schedulers, [self.start_epoch, self.min_val_error, num_bad_epochs] = \
-                self.model_checkpoint.load(self.model, self.optimizers, self.schedulers)
-            [self.G_optimizer, self.D_optimizer, self.R_optimizer] = self.optimizers
-            # self.early_stopping.best = self.min_val_error
-            # self.early_stopping.num_bad_epochs = num_bad_epochs
-            print(f'Resuming model training from epoch {self.start_epoch}')
+            self.model, self.optimizers, self.schedulers, self.start_epoch = \
+                self.model_checkpoint.load(self.model, self.config.start_epoch, self.optimizers, self.schedulers)
+            self.G_optimizer, self.D_optimizer, self.R_optimizer = self.optimizers
+            logging.info(f'Resuming model training from epoch {self.start_epoch}')
         else:
             # remove previous logs, if any
             logs = glob.glob('./logs/.*') + glob.glob('./logs/*')
@@ -159,9 +164,9 @@ class Trainer:
         self.loss_D = self.loss_D_fake + self.loss_D_real
 
         # recognizer
-        pred_R_real = self.model.R(self.real_img).permute(1, 0, 2)  # [w, b, num_chars]
-        self.loss_R_real = self.R_criterion(pred_R_real, self.real_y,
-                                            torch.ones(pred_R_real.size(1)).int() * pred_R_real.size(0),
+        self.pred_R_real = self.model.R(self.real_img).permute(1, 0, 2)  # [w, b, num_chars]
+        self.loss_R_real = self.R_criterion(self.pred_R_real, self.real_y,
+                                            torch.ones(self.pred_R_real.size(1)).int() * self.pred_R_real.size(0),
                                             self.real_y_lens)
         self.loss_R_real = torch.mean(self.loss_R_real[~torch.isnan(self.loss_R_real)])
 
@@ -174,15 +179,15 @@ class Trainer:
         self.D_optimizer.zero_grad()
         self.R_optimizer.zero_grad()
 
-
     def train(self):
-        print(f' Training '.center(self.terminal_width, '*'), end='\n\n')
+        logging.info(f' Training '.center(self.terminal_width, '*'))
 
         for epoch in range(self.start_epoch, self.config.num_epochs + 1):
-            print(f' Epoch [{epoch}/{self.config.num_epochs}] '.center(self.terminal_width, 'x'))
+            logging.info(f' Epoch [{epoch}/{self.config.num_epochs}] '.center(self.terminal_width, 'x'))
             self.model.train()
             progbar = tqdm(self.train_loader)
-            losses, epoch_preds = [], []
+            losses_G, losses_D, losses_D_real, losses_D_fake = [], [], [], []
+            losses_R_real, losses_R_fake, grads_fake_R, grads_fake_adv = [], [], [], []
 
             for i, batch_items in enumerate(progbar):
                 self.real_img = batch_items['img'].to(self.config.device)
@@ -198,44 +203,65 @@ class Trainer:
                 # Forward + Backward + Optimize D and R
                 self.optimize_D_R()
 
-                # epoch_preds.append(preds.data.cpu().numpy())
-                #
-                # loss = self.criterion(preds, y)
-                # losses.append(loss.data.cpu().numpy())
-                #
-                progbar.set_description("G = %0.3f, D = %0.3f, R_real = %0.3f, R_fake = %0.3f,  " % (self.loss_G, self.loss_D, self.loss_R_real, self.loss_R_fake))
+                # save losses
+                losses_G.append(self.loss_G.cpu().data.numpy())
+                losses_D.append(self.loss_D.cpu().data.numpy())
+                losses_D_real.append(self.loss_D_real.cpu().data.numpy())
+                losses_D_fake.append(self.loss_D_fake.cpu().data.numpy())
+                losses_R_real.append(self.loss_R_real.cpu().data.numpy())
+                losses_R_fake.append(self.loss_R_fake.cpu().data.numpy())
+                grads_fake_R.append(self.loss_grad_fake_R.cpu().data.numpy())
+                grads_fake_adv.append(self.loss_grad_fake_adv.cpu().data.numpy())
+
+                progbar.set_description("G = %0.3f, D = %0.3f, R_real = %0.3f, R_fake = %0.3f,  " %
+                                        (np.mean(losses_G), np.mean(losses_D),
+                                         np.mean(losses_R_real), np.mean(losses_R_fake)))
+
+            logging.info(f'G = {np.mean(losses_G):.3f}, D = {np.mean(losses_D):.3f}, '
+                         f'R_real = {np.mean(losses_R_real):.3f}, R_fake = {np.mean(losses_R_fake):.3f}'
+            )
+            # Save one generated fake image from last batch
+            plt.imshow(self.model.fake_img.cpu().data.numpy()[0][0], cmap='gray')
+            plt.title(self.word_map.decode(self.model.fake_y.cpu().data.numpy()[0].reshape(1, -1)))
+            plt.savefig(f'./output/epoch_{epoch}_fake_img.png')
+
+            # Print Recognizer prediction for 4 (or batch size) real images from last batch
+            num_imgs = 4 if self.config.batch_size >= 4 else self.config.batch_size
+            labels = self.word_map.decode(self.real_y[:num_imgs].cpu().numpy())
+            preds = self.word_map.recognizer_decode(self.pred_R_real.max(2)[1].permute(1, 0)[:num_imgs].cpu().numpy())
+            logging.info('\nRecognizer predictions for real images:')
+            max_len_label = max([len(i) for i in labels])
+            for lab, pred in zip(labels, preds):
+                logging.info(f'Actual: {lab:<{max_len_label+2}}|  Predicted: {pred}')
+
+            # Print Recognizer prediction for 4 (or batch size) fake images from last batch
+            logging.info('Recognizer predictions for fake images:')
+            labels = self.word_map.decode(self.model.fake_y[:num_imgs].cpu().numpy())
+            preds_R_fake = self.model.R(self.model.fake_img).permute(1, 0, 2).max(2)[1].permute(1, 0)
+            preds = self.word_map.recognizer_decode(preds_R_fake[:num_imgs].cpu().numpy())
+            max_len_label = max([len(i) for i in labels])
+            for lab, pred in zip(labels, preds):
+                logging.info(f'Actual: {lab:<{max_len_label+2}}|  Predicted: {pred}')
 
             # Change learning rate according to scheduler
             for sch in self.schedulers:
-                sch.step(epoch)
+                sch.step()
 
-            # # save checkpoint
-            # if self.min_val_error is None:
-            #     self.min_val_error = val_error
-            #     is_best = True
-            #     print(f'Best model obtained at the end of epoch {epoch}')
-            # else:
-            #     if val_error < self.min_val_error:
-            #         self.min_val_error = val_error
-            #         is_best = True
-            #         print(f'Best model obtained at the end of epoch {epoch}')
-            #     else:
-            #         is_best = False
-            # self.model_checkpoint.save(is_best, self.min_val_error, self.early_stopping.num_bad_epochs,
-            #                            epoch, self.model, [self.G_optimizer, self.D_optimizer, self.R_optimizer],
-            #                            self.scheduler)
-            #
-            # # write logs
-            # self.writer.add_scalar(f'{self.config.loss_fn}/train', train_loss, epoch * i)
-            # self.writer.add_scalar(f'{self.config.loss_fn}/val', val_loss, epoch * i)
-            # self.writer.add_scalar(f'{self.config.metric}/train', train_error, epoch * i)
-            # self.writer.add_scalar(f'{self.config.metric}/val', val_error, epoch * i)
-            #
-            # # Early Stopping
-            # if self.early_stopping.step(val_error):
-            #     print(f' Training Stopped'.center(self.terminal_width, '*'))
-            #     print(f'Early stopping triggered after epoch {epoch}')
-            #     break
+            # save latest checkpoint and after every 5 epochs
+            self.model_checkpoint.save(self.model, epoch, self.G_optimizer, self.D_optimizer, self.R_optimizer,
+                                       *self.schedulers)
+            if epoch > 1:
+                if (epoch % 5) != 1:
+                    os.remove(os.path.join(self.model_checkpoint.weight_dir, f'model_checkpoint_epoch_{epoch-1}.pth.tar'))
+
+            # write logs
+            self.writer.add_scalar(f'loss_G', np.mean(losses_G), epoch * i)
+            self.writer.add_scalar(f'loss_D/fake', np.mean(losses_D_fake), epoch * i)
+            self.writer.add_scalar(f'loss_D/real', np.mean(losses_D_real), epoch * i)
+            self.writer.add_scalar(f'loss_R/fake', np.mean(losses_R_fake), epoch * i)
+            self.writer.add_scalar(f'loss_R/real', np.mean(losses_R_real), epoch * i)
+            self.writer.add_scalar(f'grads/fake_R', np.mean(grads_fake_R), epoch * i)
+            self.writer.add_scalar(f'grads/fake_adv', np.mean(grads_fake_adv), epoch * i)
 
         self.writer.close()
 

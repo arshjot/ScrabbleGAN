@@ -7,17 +7,18 @@ class Config:
     char_w = 16
     partition = 'tr'
 
-    batch_size = 4
+    batch_size = 8
     num_epochs = 200
     epochs_lr_decay = 100  # learning rate decay will be applied for last these many steps (should be <= num_epochs)
     resume_training = False
+    start_epoch = 5
 
     train_gen_steps = 4  # generator weights to be updated after every specified number of steps
     grad_alpha = 1
     grad_balance = True
 
-    data_file = './data/tr_data.pkl'
-    lexicon_file = './data/Lexicon/words.txt'
+    data_file = '/content/tr_data.pkl'
+    lexicon_file = '/content/words.txt'
 
     architecture = 'ScrabbleGAN'
     # Recognizer network

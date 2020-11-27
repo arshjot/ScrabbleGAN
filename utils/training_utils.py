@@ -9,40 +9,44 @@ class ModelCheckpoint:
     def __init__(self, weight_dir='./weights', config=Config):
         self.weight_dir = weight_dir
         self.config = config
-        file_prefix = ''
-        self.filename = os.path.join(self.weight_dir, file_prefix + 'model_latest_checkpoint.pth.tar')
-        self.best_filename = os.path.join(self.weight_dir, file_prefix + 'model_best.pth.tar')
 
-    def save(self, is_best, min_val_error, num_bad_epochs, epoch, model, optimizers, schedulers=None):
-        scheduler_save = schedulers if schedulers is None else [sch.state_dict() for sch in schedulers]
+    def save(self, model, epoch, G_opt, D_opt, R_opt, G_sch=None, D_sch=None, R_sch=None):
+        filename = os.path.join(self.weight_dir, f'model_checkpoint_epoch_{epoch}.pth.tar')
         save_dict = {
             'model': model.state_dict(),
-            'optimizers': [opt.state_dict() for opt in optimizers],
+            'G_opt': G_opt.state_dict(),
+            'D_opt': D_opt.state_dict(),
+            'R_opt': R_opt.state_dict(),
             'epoch': epoch,
-            'min_val_error': min_val_error,
-            'num_bad_epochs': num_bad_epochs,
-            'schedulers': scheduler_save
+            'G_sch': G_sch.state_dict(),
+            'D_sch': D_sch.state_dict(),
+            'R_sch': R_sch.state_dict()
         }
-        torch.save(save_dict, self.filename)
-        if is_best:
-            shutil.copyfile(self.filename, self.best_filename)
+        torch.save(save_dict, filename)
 
-    def load(self, model, optimizers=None, schedulers=None, load_best=False):
-        load_filename = self.best_filename if load_best else self.filename
+    def load(self, model, epoch, optimizers=None, schedulers=None):
+        [G_opt, D_opt, R_opt] = optimizers if optimizers is not None else [None]*3
+        [G_sch, D_sch, R_sch] = schedulers if schedulers is not None else [None]*3
+
+        load_filename = os.path.join(self.weight_dir, f'model_checkpoint_epoch_{epoch}.pth.tar')
         if os.path.isfile(load_filename):
             checkpoint = torch.load(load_filename, map_location=self.config.device)
             model.load_state_dict(checkpoint['model'])
+
             if optimizers is not None:
-                optimizers = [opt.load_state_dict(checkpoint['optimizers'][idx]) for idx, opt in enumerate(optimizers)]
+                G_opt.load_state_dict(checkpoint['G_opt'])
+                D_opt.load_state_dict(checkpoint['D_opt'])
+                R_opt.load_state_dict(checkpoint['R_opt'])
             if schedulers is not None:
-                schedulers = [sch.load_state_dict(checkpoint['schedulers'][idx]) for idx, sch in enumerate(schedulers)]
+                G_sch.load_state_dict(checkpoint['G_sch'])
+                D_sch.load_state_dict(checkpoint['D_sch'])
+                R_sch.load_state_dict(checkpoint['R_sch'])
+
             start_epoch = checkpoint['epoch'] + 1
-            min_val_error = checkpoint['min_val_error']
-            num_bad_epochs = checkpoint['num_bad_epochs']
         else:
             raise FileNotFoundError(f'No checkpoint found at {load_filename}')
 
-        return model, optimizers, schedulers, [start_epoch, min_val_error, num_bad_epochs]
+        return model, [G_opt, D_opt, R_opt], [G_sch, D_sch, R_sch], start_epoch
 
 
 class EarlyStopping(object):
