@@ -2,7 +2,8 @@ import torch
 
 
 class Config:
-    data_folder_path = './IAM/'  # relative to ./data/
+    dataset = 'RIMES'  # 'RIMES' / 'IAM'
+    data_folder_path = './RIMES/'  # relative to ./data/
     img_h = 32
     char_w = 16
     partition = 'tr'
@@ -17,7 +18,7 @@ class Config:
     grad_alpha = 1
     grad_balance = True
 
-    data_file = '/content/tr_data.pkl'
+    data_file = f'/content/{dataset}_data.pkl'
     lexicon_file = '/content/words.txt'
 
     architecture = 'ScrabbleGAN'
@@ -27,7 +28,7 @@ class Config:
     r_fs = [64, 128, 256, 256, 512, 512, 512]
 
     # Generator and Discriminator networks
-    # arch[g_resolution] defines the architecure to be selected
+    # arch[g_resolution] defines the architecture to be selected
     # arch[16] has been added in BigGAN.py with parameters as specified in the paper
     resolution = 16
     bn_linear = 'SN'
@@ -45,7 +46,6 @@ class Config:
 
     # Noise vector
     z_dim = 128
-    num_chars = 74
+    num_chars = 74 if dataset == 'IAM' else 93
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # device = torch.device('cpu')
