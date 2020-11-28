@@ -146,15 +146,15 @@ class ScrabbleGAN(pl.LightningModule):
         fake_y = fake_y.type_as(imgs)
         fake_y_one_hot = fake_y_one_hot.type_as(imgs)
         
-        fake_y_one_hot = fake_y_one_hot.to(self.device)
-        fake_y_one_hot = fake_y_lens.to(self.device)
-        z = z.to(self.device)
         fake_y = fake_y.to(self.device)
+        fake_y_lens = fake_y_lens.to(self.device)
+        fake_y_one_hot = fake_y_one_hot.to(self.device)
+        z = z.to(self.device)
 
         # train generator
         if batch_idx % 4 == 0:
             # generate images
-            self.generated_imgs = self(z.clone(), fake_y_one_hot)
+            self.generated_imgs = self(z, fake_y_one_hot)
 
             pred_D_fake = self.D(self.generated_imgs)
             pred_R_fake = self.R(self.generated_imgs).permute(
