@@ -19,7 +19,7 @@ class Config:
     grad_balance = True
 
     data_file = f'/content/{dataset}_data.pkl'
-    lexicon_file = '/content/words.txt'
+    lexicon_file = './content/Lexique383.tsv'
 
     architecture = 'ScrabbleGAN'
     # Recognizer network
