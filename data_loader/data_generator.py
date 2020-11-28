@@ -61,7 +61,7 @@ class DataLoader:
         self.dataset = CustomDataset(config=self.config)
         return torch.utils.data.DataLoader(
             self.dataset, batch_size=self.config.batch_size, shuffle=True,
-            num_workers=1, pin_memory=True, collate_fn=self.batch_collate)
+            num_workers=3, pin_memory=True, collate_fn=self.batch_collate)
 
     def batch_collate(self, batch):
         items = {}
