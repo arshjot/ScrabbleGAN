@@ -35,8 +35,8 @@ class WordMap:
 
         dec_words = []
         for word in enc_word_list:
+            word_chars = ''
             for idx, char_enc in enumerate(word):
-                word_chars = ''
                 # skip if blank symbol or repeated characters
                 if (char_enc != 0) and (not ((idx > 0) and (char_enc == word[idx - 1]))):
                     word_chars += self.rev_char_map[char_enc]
