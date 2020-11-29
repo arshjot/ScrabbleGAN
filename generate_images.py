@@ -7,6 +7,7 @@ from config import Config
 import argparse
 import matplotlib.pyplot as plt
 
+
 class ImgGenerator:
     def __init__(self, checkpt_path, config):
         """

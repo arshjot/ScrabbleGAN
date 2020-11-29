@@ -19,7 +19,8 @@ class Config:
     grad_balance = True
 
     data_file = f'/content/{dataset}_data.pkl'
-    lexicon_file = './content/Lexique383.tsv'
+    lexicon_file_name = 'Lexique383.tsv' if dataset == 'RIMES' else 'words.txt'
+    lexicon_file = f'/content/{lexicon_file_name}'
 
     architecture = 'ScrabbleGAN'
     # Recognizer network
