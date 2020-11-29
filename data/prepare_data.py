@@ -113,10 +113,17 @@ def read_data(config):
                         word_data[img_id] = [[char_map[char] for char in label], img]
 
     else:
-        # Extract IDs for train set
-        with open(data_folder_path + '/trainingsnippets_icdar/GroundTruth_Training_ICDAR2011.txt', 'rb') as f:
+        if partition == 'tr':
+            partition_name = 'training'
+        elif partition == 'vl':
+            partition_name = 'validation'
+        else:
+            partition_name = 'test'
+
+        # Extract IDs for required set
+        with open(f'{data_folder_path}/ground_truth_{partition_name}_icdar2011.txt', 'rb') as f:
             ids = f.read().decode('unicode_escape')
-            train_ids = [i.split()[0] for i in ids.splitlines() if len(i) > 1]
+            partition_ids = [i.split()[0] for i in ids.splitlines() if len(i) > 1]
             words_raw = [i.split()[1] for i in ids.splitlines() if len(i) > 1]
 
         # Get list of unique characters and create dictionary for mapping them to integer
@@ -126,8 +133,8 @@ def read_data(config):
         num_chars = len(char_map.keys())
 
         word_data = {}
-        for img_path, label in zip(train_ids, words_raw):
-            img_path = f'{data_folder_path}/trainingsnippets_icdar/training_WR/{img_path}'
+        for img_path, label in zip(partition_ids, words_raw):
+            img_path = f'{data_folder_path}/{partition_name}/{img_path}'
             img, valid_img = read_image(img_path, len(label), img_h, char_w)
             img_id = img_path[img_path.rfind('/')+1:-5]
             if valid_img:
