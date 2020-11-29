@@ -14,9 +14,8 @@ Ensure the following directory structure is followed:
 |       └──original_partition
 |           └──te.lst, tr.lst, va1.lst, va2.lst
 |   ├── RIMES
-|       └──trainingsnippets_icdar
-|           └──GroundTruth_Training_ICDAR2011.txt
-|       └──training_WR
+|       └──ground_truth_training_icdar2011.txt
+|       └──training
 |           └──lot_1
 |           └──lot_2
 |           .

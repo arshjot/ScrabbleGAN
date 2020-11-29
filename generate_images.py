@@ -54,9 +54,9 @@ class ImgGenerator:
             with torch.no_grad():
                 self.model.forward_fake(z=None, fake_y=encoded_words, b_size=len(word_list))
 
-        word_labels = self.word_map.decode(self.model.fake_y.cpu().numpy())
+        word_labels_decoded = self.word_map.decode(self.model.fake_y.cpu().numpy())
 
-        return self.model.fake_img.squeeze(1).cpu().numpy(), word_labels
+        return self.model.fake_img.squeeze(1).cpu().numpy(), self.model.fake_y.cpu().numpy(), word_labels_decoded
 
 
 if __name__ == "__main__":
@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
     config = Config
     generator = ImgGenerator(checkpt_path=checkpoint_path, config=config)
-    generated_imgs, word_labels = generator.generate(num_imgs, word_list)
+    generated_imgs, _, word_labels = generator.generate(num_imgs, word_list)
 
     for label, img in zip(word_labels, generated_imgs):
         plt.imshow(img, cmap='gray')

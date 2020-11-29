@@ -41,7 +41,7 @@ def calculate_fid(checkpt_path, num_images=25000):
 
     # save these fake images
     for idx, img in enumerate(tqdm(range(num_images))):
-        img, word_labels = generator.generate(1)
+        img, _, word_labels = generator.generate(1)
         img = img_resize(img[0]*255)
         img = Image.fromarray(img).convert("RGB")
         img.save(f'{fake_path}/{idx}.png')

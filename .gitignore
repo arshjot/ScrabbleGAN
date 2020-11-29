@@ -29,6 +29,8 @@ __pycache__/
 *.log
 *.tiff
 *.tsv
+*.mdb
+*.zip
 
 # tensorboard logs
 /logs/*

@@ -6,7 +6,7 @@ class Config:
     data_folder_path = './RIMES/'  # relative to ./data/
     img_h = 32
     char_w = 16
-    partition = 'tr'
+    partition = 'tr'  # 'tr' / 'vl' / 'te'
 
     batch_size = 8
     num_epochs = 200
@@ -18,9 +18,10 @@ class Config:
     grad_alpha = 1
     grad_balance = True
 
-    data_file = f'/content/{dataset}_data.pkl'
+    data_file = f'./data/{dataset}_{partition}_data.pkl'
     lexicon_file_name = 'Lexique383.tsv' if dataset == 'RIMES' else 'words.txt'
-    lexicon_file = f'/content/{lexicon_file_name}'
+    lexicon_file = f'./data/Lexicon/{lexicon_file_name}'
+    lmdb_output = f'./data/{dataset}_{partition}_data'
 
     architecture = 'ScrabbleGAN'
     # Recognizer network
