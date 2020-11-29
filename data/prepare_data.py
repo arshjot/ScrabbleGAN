@@ -119,8 +119,8 @@ def read_data(config):
         else:
             partition_name = 'test'
 
-        # Extract IDs for required set
-        with open(f'{data_folder_path}/ground_truth_{partition_name}_icdar2011.txt', 'rb') as f:
+        # create char_map using training labels
+        with open(f'{data_folder_path}/ground_truth_training_icdar2011.txt', 'rb') as f:
             ids = f.read().decode('unicode_escape')
             partition_ids = [i.split()[0] for i in ids.splitlines() if len(i) > 1]
             words_raw = [i.split()[1] for i in ids.splitlines() if len(i) > 1]
@@ -131,13 +131,22 @@ def read_data(config):
         char_map['<BLANK>'] = 0
         num_chars = len(char_map.keys())
 
+        # Extract IDs for required set
+        with open(f'{data_folder_path}/ground_truth_{partition_name}_icdar2011.txt', 'rb') as f:
+            ids = f.read().decode('unicode_escape')
+            partition_ids = [i.split()[0] for i in ids.splitlines() if len(i) > 1]
+            words_raw = [i.split()[1] for i in ids.splitlines() if len(i) > 1]
+
         word_data = {}
         for img_path, label in zip(partition_ids, words_raw):
             img_path = f'{data_folder_path}/{partition_name}/{img_path}'
             img, valid_img = read_image(img_path, len(label), img_h, char_w)
             img_id = img_path[img_path.rfind('/')+1:-5]
             if valid_img:
-                word_data[img_id] = [[char_map[char] for char in label], img]
+                try:
+                    word_data[img_id] = [[char_map[char] for char in label], img]
+                except KeyError:
+                    pass
 
     print(f'Number of images = {len(word_data)}')
     print(f'Number of unique characters = {num_chars}')
