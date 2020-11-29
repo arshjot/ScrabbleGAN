@@ -1,11 +1,24 @@
 from config import Config
 import argparse
 import os
-import matplotlib.pyplot as plt
 import numpy as np
 from data_loader.data_generator import CustomDataset
 from generate_images import ImgGenerator
 from tqdm import tqdm
+from PIL import Image
+import cv2
+
+
+def img_resize(img, h=128, w=512):
+    curr_h, curr_w = img.shape
+    modified_w = int(curr_w * (h / curr_h))
+    img = cv2.resize(img, (modified_w, h))
+    if modified_w < w:
+        img = np.pad(img, [(0, 0), (0, w - modified_w)], 'constant', constant_values=255)
+    else:
+        img = img[:, :w]
+
+    return img
 
 
 def calculate_fid(checkpt_path, num_images=25000):
@@ -28,22 +41,23 @@ def calculate_fid(checkpt_path, num_images=25000):
 
     # save these fake images
     for idx, img in enumerate(tqdm(range(num_images))):
-        # to avoid padding, generate image separately
         img, word_labels = generator.generate(1)
-        plt.imshow(img[0], cmap='gray')
-        plt.savefig(f'{fake_path}/{idx}.png')
+        img = img_resize(img[0]*255)
+        img = Image.fromarray(img).convert("RGB")
+        img.save(f'{fake_path}/{idx}.png')
 
     # real images
     print('Sampling and saving real images')
     dataset = CustomDataset(config)
     # choose random images
     imgs_idx = np.random.choice(len(dataset), num_images)
-    for idx in tqdm(imgs_idx):
-        w_id = dataset.idx_to_id[idx]
+    for idx, img_idx in enumerate(tqdm(imgs_idx)):
+        w_id = dataset.idx_to_id[img_idx]
         # Get image
         _, img = dataset.word_data[w_id]
-        plt.imshow(img, cmap='gray')
-        plt.savefig(f'{real_path}/{idx}.png')
+        img = img_resize(img)
+        img = Image.fromarray(img).convert("RGB")
+        img.save(f'{real_path}/{idx}.png')
 
     # calculate fid
     os.system(f'python -m pytorch_fid {real_path} {fake_path}')
