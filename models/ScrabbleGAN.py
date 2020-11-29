@@ -116,7 +116,7 @@ class ScrabbleGAN(nn.Module):
         if z is None:
             self.z = self.z_dist.sample([b_size, self.z_dim]).to(self.config.device)
         else:
-            self.z = z
+            self.z = z.repeat(b_size, 1).to(self.config.device)
 
         # If fake words are not provided, sample it
         if fake_y is None:
@@ -124,11 +124,11 @@ class ScrabbleGAN(nn.Module):
             sample_lex_idx = self.fake_y_dist.sample([b_size])
             fake_y = [self.fake_words[i] for i in sample_lex_idx]
             fake_y, fake_y_lens = self.word_map.encode(fake_y)
+            self.fake_y_lens = fake_y_lens.to(self.config.device)
 
         # Convert y into one-hot
         self.fake_y = fake_y.to(self.config.device)
         self.fake_y_one_hot = F.one_hot(fake_y, self.num_chars).to(self.config.device)
-        self.fake_y_lens = fake_y_lens.to(self.config.device)
 
         self.fake_img = self.G(self.z, self.fake_y_one_hot)
 

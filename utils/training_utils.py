@@ -24,11 +24,14 @@ class ModelCheckpoint:
         }
         torch.save(save_dict, filename)
 
-    def load(self, model, epoch, optimizers=None, schedulers=None):
+    def load(self, model, epoch, optimizers=None, schedulers=None, checkpoint_path=None):
         [G_opt, D_opt, R_opt] = optimizers if optimizers is not None else [None]*3
         [G_sch, D_sch, R_sch] = schedulers if schedulers is not None else [None]*3
 
-        load_filename = os.path.join(self.weight_dir, f'model_checkpoint_epoch_{epoch}.pth.tar')
+        if checkpoint_path is None:
+            load_filename = os.path.join(self.weight_dir, f'model_checkpoint_epoch_{epoch}.pth.tar')
+        else:
+            load_filename = checkpoint_path
         if os.path.isfile(load_filename):
             checkpoint = torch.load(load_filename, map_location=self.config.device)
             model.load_state_dict(checkpoint['model'])
