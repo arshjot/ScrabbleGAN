@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 class ImgGenerator:
-    def __init__(self, checkpt_path, config):
+    def __init__(self, checkpt_path, config, char_map=None):
         """
         :param checkpt_path: Path of the model checkpoint file to be used
         :param config: Config with all the parameters to be used
@@ -17,9 +17,12 @@ class ImgGenerator:
 
         self.config = config
 
-        with open(config.data_file, 'rb') as f:
-            data = pkl.load(f)
-        self.char_map = data['char_map']
+        if char_map is None:
+            with open(config.data_file, 'rb') as f:
+                data = pkl.load(f)
+            self.char_map = data['char_map']
+        else:
+            self.char_map = char_map
 
         # Model
         print(f'Model: {config.architecture}')
