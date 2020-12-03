@@ -67,17 +67,23 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("-c", "--checkpt_path", required=True, type=str,
                     help="Path of the model checkpoint file to be used")
+    ap.add_argument("-m", "--char_map_path", required=True, type=str,
+                    help="Path of the file with character mapping to be used")
     ap.add_argument("-n", "--num_imgs", required=False, type=int,
                     help="number of sample points")
     ap.add_argument("-w", "--word_list", required=False, nargs='+', default=[],
                     help="words for which images need to be generated")
     args = vars(ap.parse_args())
     checkpoint_path = args['checkpt_path']
+    char_map_path = args['char_map_path']
     num_imgs = args['num_imgs'] if args['num_imgs'] is not None else 5
     word_list = args['word_list'] if len(args['word_list']) > 0 else None
 
+    with open(f'{char_map_path}', 'rb') as f:
+        char_map = pkl.load(f)
+
     config = Config
-    generator = ImgGenerator(checkpt_path=checkpoint_path, config=config)
+    generator = ImgGenerator(checkpt_path=checkpoint_path, config=config, char_map=char_map)
     generated_imgs, _, word_labels = generator.generate(num_imgs, word_list)
 
     for label, img in zip(word_labels, generated_imgs):

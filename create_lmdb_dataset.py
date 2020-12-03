@@ -89,7 +89,7 @@ if __name__ == '__main__':
     config = Config
     # Construct the argument parse and parse the arguments
     ap = argparse.ArgumentParser()
-    ap.add_argument("-cm", "--char_map_path", required=True, type=str,
+    ap.add_argument("-m", "--char_map_path", required=True, type=str,
                     help="Path of the character map pkl file")
     ap.add_argument("-c", "--checkpoint_path", required=False, type=str,
                     help="Path of the model checkpoint file to be used")
