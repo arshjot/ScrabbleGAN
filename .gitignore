@@ -40,3 +40,4 @@ __pycache__/
 
 # exceptions
 !*.keep
+!title.png
